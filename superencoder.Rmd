@@ -1,0 +1,29 @@
+---
+title: "superencoder developmental process"
+output: html_notebook
+---
+
+In this notebook, I describe the development of superencoder algorithm for identifying outliers.
+
+## superencoder functions
+First I wrote a bunch of functions to allow me apply autoencoding and supervised encoding (I call this *superencoder*) to data. Before describing the functions, I'll jump into the results and then come back and explain the function -- this notebook will be edited!
+
+```{r, include=T, warning=FALSE,echo=FALSE}
+source("libs.R") # loading the packages I need.
+source("ref_ranges.R")
+```
+
+
+
+
+## questions
+There are multiple questions to answer:
+1- Are superencoders better than autoencoders on clinical observation data?
+2- What is the minimum viable sample size for super encoders?
+3- What is the minimum viable layers and neurons for the superencoder CNN?
+
+## methods
+Before I jump into any conclusion on whether or not superencoders perform better than autoencoders on clinical observation data, I try answering questions number 2 and 3.
+
+To answer both questions 2 and 3, I ran a bunch of simulations on real-world clinical observation data -- unfortunately data are not publicly available! To produce indices for comparison, I manually identified minimum and maximum reference ranges for 28 laboratory tests (based on LOINC codes and i2b2 ontology) and assigned biologically implausible values (BIVs) for each. A list of lab tests and respective values can be found in `ref_ranges.R` script that I've sourced above.
+The functions calculate sensitivity, specificity, acuracy, and precision for a superencoder with a given sample size, CNN specification, and margin of error.
