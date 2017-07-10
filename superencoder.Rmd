@@ -1,6 +1,9 @@
 ---
 title: "superencoder developmental process"
-output: html_notebook
+output:
+  html_document: default
+  html_notebook: default
+  pdf_document: default
 ---
 
 In this notebook, I describe the development of superencoder algorithm for identifying outliers.
@@ -8,7 +11,7 @@ In this notebook, I describe the development of superencoder algorithm for ident
 ## superencoder functions
 First I wrote a bunch of functions to allow me apply autoencoding and supervised encoding (I call this *superencoder*) to data. Before describing the functions, I'll jump into the results and then come back and explain the function -- this notebook will be edited!
 
-```{r, include=T, warning=FALSE,echo=FALSE}
+```{r, include=F, warning=FALSE,echo=FALSE}
 source("libs.R") # loading the packages I need.
 source("ref_ranges.R")
 ```
@@ -22,8 +25,92 @@ There are multiple questions to answer:
 2- What is the minimum viable sample size for super encoders?
 3- What is the minimum viable layers and neurons for the superencoder CNN?
 
+
 ## methods
 Before I jump into any conclusion on whether or not superencoders perform better than autoencoders on clinical observation data, I try answering questions number 2 and 3.
 
-To answer both questions 2 and 3, I ran a bunch of simulations on real-world clinical observation data -- unfortunately data are not publicly available! To produce indices for comparison, I manually identified minimum and maximum reference ranges for 28 laboratory tests (based on LOINC codes and i2b2 ontology) and assigned biologically implausible values (BIVs) for each. A list of lab tests and respective values can be found in `ref_ranges.R` script that I've sourced above.
-The functions calculate sensitivity, specificity, acuracy, and precision for a superencoder with a given sample size, CNN specification, and margin of error.
+To produce indices for comparison, I manually identified minimum and maximum reference ranges for 28 laboratory tests (based on LOINC codes and i2b2 ontology) and assigned biologically implausible values (BIVs) for each. A list of lab tests and respective values can be found in the `ref_ranges.R` script that I've sourced above.
+
+The functions calculate sensitivity, specificity, acuracy, and precision (and a bunch of more stuff) for a superencoder/autoencoder with a given sample size (only for the superencoder), CNN specification, and margin of error. I'll describe these later on...
+
+To answer both questions 2 and 3, I ran a bunch of simulations on real-world clinical observation data -- unfortunately data are not publicly available, but I can share the results! Simulation results are stored in a directory from which I read in all the results.
+
+
+```{r, include=F, warning=FALSE,echo=FALSE}
+
+##### binding all result tables.
+# path = "results/sim_comp_tables" #use this path on Linux cluster
+path = "/Volumes/he079/workspace/dqep.enc.dev/results/sim_comp_tables" #use this path on Luckymac
+names = list.files(path)
+
+output = list()
+N = length(names)
+for (i in 1:N) {
+  output[[i]] = data.frame(fread(paste0(path,"/",names[i],sep="")))
+}
+superencoder.results = do.call(rbind, lapply(output, data.frame, stringsAsFactors=FALSE))
+#subseting to superencoder results
+superencoder.results = subset(superencoder.results, superencoder.results$model == "supervised.encoding")
+
+```
+
+I have run more than 100 simulations on 28 observations with 3 different sample sizes (500, 1000, and 10,000) and 5 CNN layer+neuron specifications.
+
+First focusing on the sample size. The functions don't include data size in the outputs. So, I separately calculated the number of rows to obtain a normalized sample size.
+
+```{r, include=T, warning=FALSE,echo=FALSE}
+lengths =  data.frame(fread("/Volumes/he079/workspace/dqep.enc.dev/results/lengths_2017-07-06.csv"))
+lengths$V1 = NULL
+
+superencoder.results = merge(superencoder.results,lengths, by="pcori_basecode")
+superencoder.results$V1=NULL
+
+
+# converting characters to numeric
+superencoder.results[,c(2:6,8,10:12)] <- sapply(superencoder.results[,c(2:6,8,10:12)],as.numeric)
+## calculating normalized sample size
+superencoder.results$rel.sample.size = superencoder.results$sample.size/superencoder.results$length
+```
+
+Now let's visualize some of the results to see variability in sensitivity results from by sample size
+
+```{r, include=T, warning=FALSE,echo=FALSE, fig.height=70}
+# take a couple observations for plotting test
+# superencoder.results2 = subset(superencoder.results, superencoder.results$pcori_basecode %in% c("BMI","DIASTOLIC","SYSTOLIC"))
+
+ggplot(superencoder.results,aes(x=reorder(sample.size, sample.size),y=sensitivity,group=factor(sample.size))) +
+  geom_point(alpha = 0.3, color = "red") +
+  geom_boxplot( alpha= 0.7) +
+  xlab("sample size")+
+  # theme()
+  facet_grid(pcori_basecode~layers, scale = "free")
+```
+
+ow let's visualize some of the results to see variability in specificity results from by sample size
+
+```{r, include=T, warning=FALSE,echo=FALSE, fig.height=70}
+# take a couple observations for plotting test
+# superencoder.results2 = subset(superencoder.results, superencoder.results$pcori_basecode %in% c("BMI","DIASTOLIC","SYSTOLIC"))
+
+ggplot(superencoder.results,aes(x=reorder(sample.size, sample.size),y=specificity,group=factor(sample.size))) +
+  geom_point(alpha = 0.3, color = "red") +
+  geom_boxplot( alpha= 0.7) +
+  xlab("sample size")+
+  # theme()
+  facet_grid(pcori_basecode~layers, scale = "free")
+```
+
+
+ow let's visualize some of the results to see variability in accuracy results from by sample size
+
+```{r, include=T, warning=FALSE,echo=FALSE, fig.height=70}
+# take a couple observations for plotting test
+# superencoder.results2 = subset(superencoder.results, superencoder.results$pcori_basecode %in% c("BMI","DIASTOLIC","SYSTOLIC"))
+
+ggplot(superencoder.results,aes(x=reorder(sample.size, sample.size),y=accuracy,group=factor(sample.size))) +
+  geom_point(alpha = 0.3, color = "red") +
+  geom_boxplot( alpha= 0.7) +
+  xlab("sample size")+
+  # theme()
+  facet_grid(pcori_basecode~layers, scale = "free")
+```
